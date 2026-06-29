@@ -60,9 +60,15 @@ var initCmd = &cobra.Command{
 			}
 		}
 
-		bytes, err := os.ReadFile("./migrations.sql")
-		if err != nil {
-			return fmt.Errorf("failed to read migrations: %w", err)
+		// Load migrations from embedded SQL to avoid filesystem dependency
+		bytes := []byte(migrationsSQL)
+		if len(bytes) == 0 {
+			// Fallback to filesystem for dev scenarios
+			var err error
+			bytes, err = os.ReadFile("./migrations.sql")
+			if err != nil {
+				return fmt.Errorf("failed to read migrations: %w", err)
+			}
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
