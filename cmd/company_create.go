@@ -4,14 +4,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 
+	"github.com/Nelwhix/clockit/pkg"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 )
 
 var (
-	companyName   string
-	companyRate   int64
+	companyName     string
+	companyRate     int64
 	companyCurrency string
 )
 
@@ -29,7 +31,7 @@ var createCmd = &cobra.Command{
 			return fmt.Errorf("company name is required (use --name or provide as first argument)")
 		}
 
-		dbPath, err := getPlatformSpecificDBPath()
+		dbPath, err := pkg.GetPlatformSpecificDBPath()
 		if err != nil {
 			return fmt.Errorf("get db path: %w", err)
 		}
@@ -37,12 +39,19 @@ var createCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("open db: %w", err)
 		}
-		defer db.Close()
+		defer func(db *sql.DB) {
+			err := db.Close()
+			if err != nil {
+				os.Exit(1)
+			}
+		}(db)
 
 		var q string
 		var params []any
 		if companyRate != 0 || companyCurrency != "" {
-			if companyCurrency == "" { companyCurrency = "USD" }
+			if companyCurrency == "" {
+				companyCurrency = "USD"
+			}
 			q = `INSERT INTO companies(name, rate_cents, currency) VALUES (?,?,?)`
 			params = []any{name, companyRate, companyCurrency}
 		} else {

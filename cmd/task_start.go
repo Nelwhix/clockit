@@ -10,11 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/Nelwhix/clockit/pkg"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/stopwatch"
 	tea "github.com/charmbracelet/bubbletea"
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 )
 
@@ -31,7 +32,7 @@ var taskStartCmd = &cobra.Command{
 		}
 
 		// open db
-		dbPath, err := getPlatformSpecificDBPath()
+		dbPath, err := pkg.GetPlatformSpecificDBPath()
 		if err != nil {
 			return fmt.Errorf("get db path: %w", err)
 		}
@@ -43,7 +44,7 @@ var taskStartCmd = &cobra.Command{
 
 		// ensure task exists and fetch optional company_id
 		var (
-			existsID int64
+			existsID  int64
 			companyID sql.NullInt64
 		)
 		row := db.QueryRow(`SELECT id, company_id FROM tasks WHERE id = ?`, taskID)
@@ -63,10 +64,16 @@ var taskStartCmd = &cobra.Command{
 				reset: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "reset")),
 				quit:  key.NewBinding(key.WithKeys("ctrl+c", "q"), key.WithHelp("q", "quit & save")),
 			},
-			help:      help.New(),
-			taskID:    taskID,
-			companyID: func() *int64 { if companyID.Valid { v := companyID.Int64; return &v }; return nil }(),
-			db:        db,
+			help:   help.New(),
+			taskID: taskID,
+			companyID: func() *int64 {
+				if companyID.Valid {
+					v := companyID.Int64
+					return &v
+				}
+				return nil
+			}(),
+			db: db,
 		}
 		m.keymap.start.SetEnabled(false)
 

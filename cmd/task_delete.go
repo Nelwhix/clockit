@@ -5,15 +5,16 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Nelwhix/clockit/pkg"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 )
 
 var (
-	deleteTaskID   int64
-	deleteTaskName string
-	deleteTaskYes  bool
-	deleteTaskCompanyID int64
+	deleteTaskID          int64
+	deleteTaskName        string
+	deleteTaskYes         bool
+	deleteTaskCompanyID   int64
 	deleteTaskCompanyName string
 )
 
@@ -30,33 +31,47 @@ var taskDeleteCmd = &cobra.Command{
 			return fmt.Errorf("when deleting by --name, also provide --company-id or --company-name to disambiguate")
 		}
 
-		dbPath, err := getPlatformSpecificDBPath()
-		if err != nil { return fmt.Errorf("get db path: %w", err) }
+		dbPath, err := pkg.GetPlatformSpecificDBPath()
+		if err != nil {
+			return fmt.Errorf("get db path: %w", err)
+		}
 		db, err := sql.Open("sqlite3", dbPath)
-		if err != nil { return fmt.Errorf("open db: %w", err) }
+		if err != nil {
+			return fmt.Errorf("open db: %w", err)
+		}
 		defer db.Close()
 
 		var id int64
 		var name string
 		if deleteTaskID != 0 {
 			if err := db.QueryRow(`SELECT id, name FROM tasks WHERE id = ?`, deleteTaskID).Scan(&id, &name); err != nil {
-				if errors.Is(err, sql.ErrNoRows) { return fmt.Errorf("no task found with id %d", deleteTaskID) }
+				if errors.Is(err, sql.ErrNoRows) {
+					return fmt.Errorf("no task found with id %d", deleteTaskID)
+				}
 				return fmt.Errorf("lookup task by id: %w", err)
 			}
 		} else {
 			var companyFilter string
 			var arg any
-			if deleteTaskCompanyID != 0 { companyFilter = "company_id = ?"; arg = deleteTaskCompanyID } else {
+			if deleteTaskCompanyID != 0 {
+				companyFilter = "company_id = ?"
+				arg = deleteTaskCompanyID
+			} else {
 				var cid int64
 				if err := db.QueryRow(`SELECT id FROM companies WHERE name = ?`, deleteTaskCompanyName).Scan(&cid); err != nil {
-					if errors.Is(err, sql.ErrNoRows) { return fmt.Errorf("no company found with name %q", deleteTaskCompanyName) }
+					if errors.Is(err, sql.ErrNoRows) {
+						return fmt.Errorf("no company found with name %q", deleteTaskCompanyName)
+					}
 					return fmt.Errorf("lookup company: %w", err)
 				}
-				companyFilter = "company_id = ?"; arg = cid
+				companyFilter = "company_id = ?"
+				arg = cid
 			}
 			q := "SELECT id, name FROM tasks WHERE name = ? AND " + companyFilter + " LIMIT 1"
 			if err := db.QueryRow(q, deleteTaskName, arg).Scan(&id, &name); err != nil {
-				if errors.Is(err, sql.ErrNoRows) { return fmt.Errorf("no task found with name %q for the specified company", deleteTaskName) }
+				if errors.Is(err, sql.ErrNoRows) {
+					return fmt.Errorf("no task found with name %q for the specified company", deleteTaskName)
+				}
 				return fmt.Errorf("lookup task by name: %w", err)
 			}
 		}
@@ -67,9 +82,14 @@ var taskDeleteCmd = &cobra.Command{
 		}
 
 		res, err := db.Exec(`DELETE FROM tasks WHERE id = ?`, id)
-		if err != nil { return fmt.Errorf("delete task: %w", err) }
+		if err != nil {
+			return fmt.Errorf("delete task: %w", err)
+		}
 		affected, _ := res.RowsAffected()
-		if affected == 0 { cmd.Println("No task deleted."); return nil }
+		if affected == 0 {
+			cmd.Println("No task deleted.")
+			return nil
+		}
 		cmd.Printf("Deleted task %q (id=%d)\n", name, id)
 		return nil
 	},

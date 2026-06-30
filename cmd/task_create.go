@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/Nelwhix/clockit/pkg"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 )
@@ -31,7 +33,7 @@ var taskCreateCmd = &cobra.Command{
 			return fmt.Errorf("task name is required (use --name or provide as first argument)")
 		}
 
-		dbPath, err := getPlatformSpecificDBPath()
+		dbPath, err := pkg.GetPlatformSpecificDBPath()
 		if err != nil {
 			return fmt.Errorf("get db path: %w", err)
 		}
@@ -39,7 +41,12 @@ var taskCreateCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("open db: %w", err)
 		}
-		defer db.Close()
+		defer func(db *sql.DB) {
+			err := db.Close()
+			if err != nil {
+				os.Exit(1)
+			}
+		}(db)
 
 		var companyID *int64
 		if taskCompanyID != 0 || taskCompanyName != "" {

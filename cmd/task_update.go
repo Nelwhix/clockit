@@ -4,8 +4,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/Nelwhix/clockit/pkg"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 )
@@ -28,35 +30,64 @@ var taskUpdateCmd = &cobra.Command{
 		if updateTaskID == 0 {
 			return fmt.Errorf("--id is required")
 		}
-		dbPath, err := getPlatformSpecificDBPath()
-		if err != nil { return fmt.Errorf("get db path: %w", err) }
+		dbPath, err := pkg.GetPlatformSpecificDBPath()
+		if err != nil {
+			return fmt.Errorf("get db path: %w", err)
+		}
 		db, err := sql.Open("sqlite3", dbPath)
-		if err != nil { return fmt.Errorf("open db: %w", err) }
-		defer db.Close()
+		if err != nil {
+			return fmt.Errorf("open db: %w", err)
+		}
+		defer func(db *sql.DB) {
+			err := db.Close()
+			if err != nil {
+				os.Exit(1)
+			}
+		}(db)
 
 		// ensure task exists
 		var exists int
 		if err := db.QueryRow(`SELECT 1 FROM tasks WHERE id = ?`, updateTaskID).Scan(&exists); err != nil {
-			if errors.Is(err, sql.ErrNoRows) { return fmt.Errorf("no task found with id %d", updateTaskID) }
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("no task found with id %d", updateTaskID)
+			}
 			return fmt.Errorf("lookup task: %w", err)
 		}
 
 		sets := make([]string, 0)
 		vals := make([]any, 0)
 
-		if s := strings.TrimSpace(updateName); s != "" { sets = append(sets, "name = ?"); vals = append(vals, s) }
-		if updateDesc != "" { sets = append(sets, "description = ?"); vals = append(vals, updateDesc) }
-		if updateActiveSet { sets = append(sets, "is_active = ?"); if updateActive { vals = append(vals, 1) } else { vals = append(vals, 0) } }
+		if s := strings.TrimSpace(updateName); s != "" {
+			sets = append(sets, "name = ?")
+			vals = append(vals, s)
+		}
+		if updateDesc != "" {
+			sets = append(sets, "description = ?")
+			vals = append(vals, updateDesc)
+		}
+		if updateActiveSet {
+			sets = append(sets, "is_active = ?")
+			if updateActive {
+				vals = append(vals, 1)
+			} else {
+				vals = append(vals, 0)
+			}
+		}
 
 		if updateCompanyID != 0 || strings.TrimSpace(updateCompanyName) != "" {
 			var cid int64
-			if updateCompanyID != 0 { cid = updateCompanyID } else {
+			if updateCompanyID != 0 {
+				cid = updateCompanyID
+			} else {
 				if err := db.QueryRow(`SELECT id FROM companies WHERE name = ?`, updateCompanyName).Scan(&cid); err != nil {
-					if errors.Is(err, sql.ErrNoRows) { return fmt.Errorf("no company found with name %q", updateCompanyName) }
+					if errors.Is(err, sql.ErrNoRows) {
+						return fmt.Errorf("no company found with name %q", updateCompanyName)
+					}
 					return fmt.Errorf("lookup company: %w", err)
 				}
 			}
-			sets = append(sets, "company_id = ?"); vals = append(vals, cid)
+			sets = append(sets, "company_id = ?")
+			vals = append(vals, cid)
 		}
 
 		if len(sets) == 0 {
@@ -66,7 +97,9 @@ var taskUpdateCmd = &cobra.Command{
 
 		vals = append(vals, updateTaskID)
 		q := "UPDATE tasks SET " + strings.Join(sets, ", ") + " WHERE id = ?"
-		if _, err := db.Exec(q, vals...); err != nil { return fmt.Errorf("update task: %w", err) }
+		if _, err := db.Exec(q, vals...); err != nil {
+			return fmt.Errorf("update task: %w", err)
+		}
 		cmd.Printf("Updated task id %d\n", updateTaskID)
 		return nil
 	},

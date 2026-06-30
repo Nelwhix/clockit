@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"os"
 
+	"github.com/Nelwhix/clockit/pkg"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 )
@@ -15,7 +17,7 @@ var listCmd = &cobra.Command{
 	Short: "List companies",
 	Long:  "List all companies in the database.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dbPath, err := getPlatformSpecificDBPath()
+		dbPath, err := pkg.GetPlatformSpecificDBPath()
 		if err != nil {
 			return fmt.Errorf("get db path: %w", err)
 		}
@@ -23,13 +25,23 @@ var listCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("open db: %w", err)
 		}
-		defer db.Close()
+		defer func(db *sql.DB) {
+			err := db.Close()
+			if err != nil {
+				os.Exit(1)
+			}
+		}(db)
 
 		rows, err := db.Query(`SELECT id, name, rate_cents, currency, created_at, updated_at FROM companies ORDER BY name`)
 		if err != nil {
 			return fmt.Errorf("query companies: %w", err)
 		}
-		defer rows.Close()
+		defer func(rows *sql.Rows) {
+			err := rows.Close()
+			if err != nil {
+				os.Exit(1)
+			}
+		}(rows)
 
 		type item struct {
 			id        int64

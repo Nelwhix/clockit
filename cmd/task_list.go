@@ -3,8 +3,10 @@ package cmd
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"strings"
 
+	"github.com/Nelwhix/clockit/pkg"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/cobra"
 )
@@ -20,7 +22,7 @@ var taskListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List tasks",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dbPath, err := getPlatformSpecificDBPath()
+		dbPath, err := pkg.GetPlatformSpecificDBPath()
 		if err != nil {
 			return fmt.Errorf("get db path: %w", err)
 		}
@@ -28,7 +30,12 @@ var taskListCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("open db: %w", err)
 		}
-		defer db.Close()
+		defer func(db *sql.DB) {
+			err := db.Close()
+			if err != nil {
+				os.Exit(1)
+			}
+		}(db)
 
 		var where []string
 		var params []any
@@ -52,7 +59,12 @@ var taskListCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("query tasks: %w", err)
 		}
-		defer rows.Close()
+		defer func(rows *sql.Rows) {
+			err := rows.Close()
+			if err != nil {
+				os.Exit(1)
+			}
+		}(rows)
 
 		type item struct {
 			id          int64
@@ -83,12 +95,22 @@ var taskListCmd = &cobra.Command{
 		for i, it := range out {
 			cmd.Printf("ID: %d\n", it.id)
 			cmd.Printf("Name: %s\n", it.name)
-			if it.companyID.Valid { cmd.Printf("CompanyID: %d\n", it.companyID.Int64) } else { cmd.Printf("CompanyID: \n") }
-			if it.description.Valid { cmd.Printf("Description: %s\n", it.description.String) } else { cmd.Printf("Description: \n") }
+			if it.companyID.Valid {
+				cmd.Printf("CompanyID: %d\n", it.companyID.Int64)
+			} else {
+				cmd.Printf("CompanyID: \n")
+			}
+			if it.description.Valid {
+				cmd.Printf("Description: %s\n", it.description.String)
+			} else {
+				cmd.Printf("Description: \n")
+			}
 			cmd.Printf("IsActive: %t\n", it.isActive == 1)
 			cmd.Printf("CreatedAt: %s\n", it.createdAt)
 			cmd.Printf("UpdatedAt: %s\n", it.updatedAt)
-			if i < len(out)-1 { cmd.Println("") }
+			if i < len(out)-1 {
+				cmd.Println("")
+			}
 		}
 		return nil
 	},
