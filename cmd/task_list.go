@@ -53,7 +53,7 @@ var taskListCmd = &cobra.Command{
 		if len(where) > 0 {
 			q += " WHERE " + strings.Join(where, " AND ")
 		}
-		q += " ORDER BY name"
+		q += " ORDER BY created_at"
 
 		rows, err := db.Query(q, params...)
 		if err != nil {
