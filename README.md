@@ -1,4 +1,4 @@
-# clockit
+# clockit 🤏🏿
 
 A time tracking CLI for freelancers working with multiple companies.
 
